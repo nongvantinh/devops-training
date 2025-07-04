@@ -1,0 +1,53 @@
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfplan
+terraform.tfvars
+
+# AWS
+.aws/
+
+# Docker
+.docker/
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output files
+outputs/
+*.zip
+*.tar.gz
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Secrets
+secrets.yaml
+*.pem
+*.key
+*.crt

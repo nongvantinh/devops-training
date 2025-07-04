@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: counter
+  namespace: coffeeshop
+  labels:
+    app: counter
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: counter
+  template:
+    metadata:
+      labels:
+        app: counter
+    spec:
+      containers:
+      - name: counter
+        image: ghcr.io/nongvantinh/go-coffeeshop-counter:latest
+        ports:
+        - containerPort: 5002
+          name: grpc
+        env:
+        - name: APP_NAME
+          value: "Counter Service"
+        - name: IN_DOCKER
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: in-docker
+        - name: PG_URL
+          valueFrom:
+            secretKeyRef:
+              name: coffeeshop-secrets
+              key: postgres-connection-string
+        - name: PG_DSN_URL
+          value: "host=postgres user=$(POSTGRES_USER) password=$(POSTGRES_PASSWORD) dbname=$(POSTGRES_DB) sslmode=disable"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-db
+        - name: RABBITMQ_URL
+          value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASS)@rabbitmq:5672/"
+        - name: RABBITMQ_USER
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: rabbitmq-user
+        - name: RABBITMQ_PASS
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: rabbitmq-pass
+        - name: PRODUCT_CLIENT_URL
+          value: "product:5001"
+        livenessProbe:
+          tcpSocket:
+            port: 5002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 5002
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done;']
+      - name: wait-for-rabbitmq
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z rabbitmq 5672; do echo waiting for rabbitmq; sleep 2; done;']
+      - name: wait-for-product
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z product 5001; do echo waiting for product; sleep 2; done;']

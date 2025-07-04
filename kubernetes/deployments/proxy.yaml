@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy
+  namespace: coffeeshop
+  labels:
+    app: proxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: proxy
+  template:
+    metadata:
+      labels:
+        app: proxy
+    spec:
+      containers:
+      - name: proxy
+        image: ghcr.io/nongvantinh/go-coffeeshop-proxy:latest
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: APP_NAME
+          value: "Proxy Service"
+        - name: GRPC_PRODUCT_HOST
+          value: "product"
+        - name: GRPC_PRODUCT_PORT
+          value: "5001"
+        - name: GRPC_COUNTER_HOST
+          value: "counter"
+        - name: GRPC_COUNTER_PORT
+          value: "5002"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      initContainers:
+      - name: wait-for-product
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z product 5001; do echo waiting for product; sleep 2; done;']
+      - name: wait-for-counter
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z counter 5002; do echo waiting for counter; sleep 2; done;']

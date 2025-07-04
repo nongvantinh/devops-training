@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: monitoring
+data:
+  coffeeshop.yml: |
+    groups:
+    - name: coffeeshop.rules
+      rules:
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{namespace="coffeeshop"}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 80% for {{ $labels.pod }} in {{ $labels.namespace }}"
+
+      - alert: HighMemoryUsage
+        expr: container_memory_usage_bytes{namespace="coffeeshop"} / container_spec_memory_limit_bytes{namespace="coffeeshop"} * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 80% for {{ $labels.pod }} in {{ $labels.namespace }}"
+
+      - alert: PodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total{namespace="coffeeshop"}[15m]) * 60 * 15 > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod is crash looping"
+          description: "Pod {{ $labels.pod }} in {{ $labels.namespace }} is restarting frequently"
+
+      - alert: HPAMaxReplicas
+        expr: kube_hpa_status_current_replicas{namespace="coffeeshop"} == kube_hpa_spec_max_replicas{namespace="coffeeshop"}
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HPA reached maximum replicas"
+          description: "HPA {{ $labels.hpa }} has reached maximum replicas of {{ $value }}"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{namespace="coffeeshop",status=~"5.."}[5m]) / rate(http_requests_total{namespace="coffeeshop"}[5m]) * 100 > 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate"
+          description: "5xx error rate is above 5% for {{ $labels.service }}"
+
+      - alert: ELBRequestCountAnomaly
+        expr: abs(rate(aws_elb_request_count_sum[5m]) - avg_over_time(rate(aws_elb_request_count_sum[5m])[1h])) > 2 * stddev_over_time(rate(aws_elb_request_count_sum[5m])[1h])
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ELB request count anomaly detected"
+          description: "ELB request count has deviated significantly from normal patterns"

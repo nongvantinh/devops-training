@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-service
+  namespace: coffeeshop
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-service
+  template:
+    metadata:
+      labels:
+        app: web-service
+    spec:
+      containers:
+      - name: web
+        image: ghcr.io/nongvantinh/devops-training:latest
+        env:
+        - name: SERVICE_TYPE
+          value: "web"
+        - name: REVERSE_PROXY_URL
+          value: "proxy-service:5000"
+        - name: WEB_PORT
+          value: "8888"
+        ports:
+        - containerPort: 8888
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8888
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8888
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

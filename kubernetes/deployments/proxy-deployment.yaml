@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy-service
+  namespace: coffeeshop
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: proxy-service
+  template:
+    metadata:
+      labels:
+        app: proxy-service
+    spec:
+      containers:
+      - name: proxy
+        image: ghcr.io/nongvantinh/devops-training:latest
+        env:
+        - name: APP_NAME
+          value: "proxy-service"
+        - name: SERVICE_TYPE
+          value: "proxy"
+        - name: GRPC_PRODUCT_HOST
+          value: "product-service"
+        - name: GRPC_PRODUCT_PORT
+          value: "5001"
+        - name: GRPC_COUNTER_HOST
+          value: "counter-service"
+        - name: GRPC_COUNTER_PORT
+          value: "5002"
+        ports:
+        - containerPort: 5000
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

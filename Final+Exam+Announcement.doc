@@ -1,0 +1,635 @@
+Message-ID: <1177123261.45.1751445889145@8bdc05edeb3d>
+Subject: Exported From Confluence
+MIME-Version: 1.0
+Content-Type: multipart/related; 
+	boundary="----=_Part_44_1246697615.1751445889145"
+
+------=_Part_44_1246697615.1751445889145
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Content-Location: file:///C:/exported.html
+
+<html xmlns:o=3D'urn:schemas-microsoft-com:office:office'
+      xmlns:w=3D'urn:schemas-microsoft-com:office:word'
+      xmlns:v=3D'urn:schemas-microsoft-com:vml'
+      xmlns=3D'urn:w3-org-ns:HTML'>
+<head>
+    <meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf-8=
+">
+    <title>Final Exam Announcement</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <o:OfficeDocumentSettings>
+            <o:TargetScreenSize>1024x640</o:TargetScreenSize>
+            <o:PixelsPerInch>72</o:PixelsPerInch>
+            <o:AllowPNG/>
+        </o:OfficeDocumentSettings>
+        <w:WordDocument>
+            <w:View>Print</w:View>
+            <w:Zoom>90</w:Zoom>
+            <w:DoNotOptimizeForBrowser/>
+        </w:WordDocument>
+    </xml>
+    <![endif]-->
+    <style>
+                <!--
+        @page Section1 {
+            size: 8.5in 11.0in;
+            margin: 1.0in;
+            mso-header-margin: .5in;
+            mso-footer-margin: .5in;
+            mso-paper-source: 0;
+        }
+
+        table {
+            border: solid 1px;
+            border-collapse: collapse;
+        }
+
+        table td, table th {
+            border: solid 1px;
+            padding: 5px;
+        }
+
+        td {
+            page-break-inside: avoid;
+        }
+
+        tr {
+            page-break-after: avoid;
+        }
+
+        div.Section1 {
+            page: Section1;
+        }
+
+        /* Confluence print stylesheet. Common to all themes for print medi=
+a */
+/* Full of !important until we improve batching for print CSS */
+
+@media print {
+    #main {
+        padding-bottom: 1em !important; /* The default padding of 6em is to=
+o much for printouts */
+    }
+
+    body {
+        font: var(--ds-font-body-small, Arial, Helvetica, FreeSans, sans-se=
+rif);
+    }
+
+    body, #full-height-container, #main, #page, #content, .has-personal-sid=
+ebar #content {
+        background: var(--ds-surface, #fff) !important;
+        color: var(--ds-text, #000) !important;
+        border: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+    }
+
+    a, a:link, a:visited, a:focus, a:hover, a:active {
+        color: var(--ds-text, #000);
+    }
+
+    #content h1,
+    #content h2,
+    #content h3,
+    #content h4,
+    #content h5,
+    #content h6 {
+        page-break-after: avoid;
+    }
+
+    pre {
+        font: var(--ds-font-code, Monaco, "Courier New", monospace);
+    }
+
+    #header,
+    .aui-header-inner,
+    #navigation,
+    #sidebar,
+    .sidebar,
+    #personal-info-sidebar,
+    .ia-fixed-sidebar,
+    .page-actions,
+    .navmenu,
+    .ajs-menu-bar,
+    .noprint,
+    .inline-control-link,
+    .inline-control-link a,
+    a.show-labels-editor,
+    .global-comment-actions,
+    .comment-actions,
+    .quick-comment-container,
+    #addcomment {
+        display: none !important;
+    }
+
+    /* CONF-28544 cannot print multiple pages in IE */
+    #splitter-content {
+        position: relative !important;
+    }
+
+    .comment .date::before {
+        content: none !important; /* remove middot for print view */
+    }
+
+    h1.pagetitle img {
+        height: auto;
+        width: auto;
+    }
+
+    .print-only {
+        display: block;
+    }
+
+    #footer {
+        position: relative !important; /* CONF-17506 Place the footer at en=
+d of the content */
+        margin: 0;
+        padding: 0;
+        background: none;
+        clear: both;
+    }
+
+    #poweredby {
+        border-top: none;
+        background: none;
+    }
+
+    #poweredby li.print-only {
+        display: list-item;
+        font-style: italic;
+    }
+
+    #poweredby li.noprint {
+        display: none;
+    }
+
+    /* no width controls in print */
+    .wiki-content .table-wrap,
+    .wiki-content p,
+    .panel .codeContent,
+    .panel .codeContent pre,
+    .image-wrap {
+        overflow: visible !important;
+    }
+
+    /* TODO - should this work? */
+    #children-section,
+    #comments-section .comment,
+    #comments-section .comment .comment-body,
+    #comments-section .comment .comment-content,
+    #comments-section .comment p {
+        page-break-inside: avoid;
+    }
+
+    #page-children a {
+        text-decoration: none;
+    }
+
+    /**
+     hide twixies
+
+     the specificity here is a hack because print styles
+     are getting loaded before the base styles. */
+    #comments-section.pageSection .section-header,
+    #comments-section.pageSection .section-title,
+    #children-section.pageSection .section-header,
+    #children-section.pageSection .section-title,
+    .children-show-hide {
+        padding-left: 0;
+        margin-left: 0;
+    }
+
+    .children-show-hide.icon {
+        display: none;
+    }
+
+    /* personal sidebar */
+    .has-personal-sidebar #content {
+        margin-right: 0px;
+    }
+
+    .has-personal-sidebar #content .pageSection {
+        margin-right: 0px;
+    }
+
+    .no-print, .no-print * {
+        display: none !important;
+    }
+}
+-->
+    </style>
+</head>
+<body>
+    <h1>Final Exam Announcement</h1>
+    <div class=3D"Section1">
+        <div class=3D"toc-macro">
+<a href=3D"#FinalExamAnnouncement-ExamStructure">Exam Structure</a> | <a hr=
+ef=3D"#FinalExamAnnouncement-Submission">Submission</a> | <a href=3D"#Final=
+ExamAnnouncement-Timeline">Timeline</a>
+</div>
+<h1 id=3D"FinalExamAnnouncement-ExamStructure">Exam Structure</h1>
+<p>We have already prepared the container image for the web application. Th=
+e images and their environment variables are: (Repo link: <a class=3D"exter=
+nal-link" href=3D"https://hub.docker.com/u/cuongopswat" rel=3D"nofollow">ht=
+tps://hub.docker.com/u/cuongopswat</a>)</p>
+<ul>
+<li>
+<p>cuongopswat/go-coffeeshop-web</p>
+<ul>
+<li>
+<p>REVERSE_PROXY_URL: &lt;proxy_service:port&gt;</p></li>
+<li>
+<p>WEB_PORT: 8888</p></li>
+</ul></li>
+<li>
+<p>cuongopswat/go-coffeeshop-proxy</p>
+<ul>
+<li>
+<p>APP_NAME: &lt;Any Name&gt;</p></li>
+<li>
+<p>GRPC_PRODUCT_HOST: &lt;product service&gt;</p></li>
+<li>
+<p>GRPC_PRODUCT_PORT: 5001</p></li>
+<li>
+<p>GRPC_COUNTER_HOST: &lt;counter service&gt;</p></li>
+<li>
+<p>GRPC_COUNTER_PORT: 5002</p></li>
+</ul></li>
+<li>
+<p>cuongopswat/go-coffeeshop-barista</p>
+<ul>
+<li>
+<p>APP_NAME: &lt;Any Name&gt;</p></li>
+<li>
+<p>IN_DOCKER: "true"</p></li>
+<li>
+<p>PG_URL: &lt;Postgresql connection string&gt;</p></li>
+<li>
+<p>PG_DSN_URL: &lt;host=3D=E2=80=A6 user=3D=E2=80=A6 password=3D=E2=80=A6 d=
+bname=3D=E2=80=A6 sslmode=3Ddisable&gt; sslmode=3Ddisable</p></li>
+<li>
+<p>RABBITMQ_URL: &lt;RabbitMQ connection string&gt;</p></li>
+</ul></li>
+<li>
+<p>cuongopswat/go-coffeeshop-kitchen</p>
+<ul>
+<li>
+<p>APP_NAME: &lt;Any Name&gt;</p></li>
+<li>
+<p>IN_DOCKER: "true"</p></li>
+<li>
+<p>PG_URL: &lt;Postgresql connection string&gt;</p></li>
+<li>
+<p>PG_DSN_URL: &lt;host=3D=E2=80=A6 user=3D=E2=80=A6 password=3D=E2=80=A6 d=
+bname=3D=E2=80=A6 sslmode=3Ddisable&gt; sslmode=3Ddisable</p></li>
+<li>
+<p>RABBITMQ_URL: &lt;RabbitMQ connection string&gt;</p></li>
+</ul></li>
+<li>
+<p>cuongopswat/go-coffeeshop-counter</p>
+<ul>
+<li>
+<p>APP_NAME:&lt;Any Name&gt;</p></li>
+<li>
+<p>IN_DOCKER: "true"</p></li>
+<li>
+<p>PG_URL: &lt;Postgresql connection string&gt;</p></li>
+<li>
+<p>PG_DSN_URL: &lt;host=3D=E2=80=A6 user=3D=E2=80=A6 password=3D=E2=80=A6 d=
+bname=3D=E2=80=A6 sslmode=3Ddisable&gt;</p></li>
+<li>
+<p>RABBITMQ_URL: &lt;RabbitMQ connection string&gt;</p></li>
+<li>
+<p>PRODUCT_CLIENT_URL: &lt;product-service:port&gt;</p></li>
+</ul></li>
+<li>
+<p>cuongopswat/go-coffeeshop-product</p>
+<ul>
+<li>
+<p>APP_NAME: &lt;Any Name&gt;</p></li>
+</ul></li>
+<li>
+<p>postgres:14-alpine</p>
+<ul>
+<li>
+<p>POSTGRES_DB</p></li>
+<li>
+<p>POSTGRES_USER</p></li>
+<li>
+<p>POSTGRES_PASSWORD</p></li>
+</ul></li>
+<li>
+<p>rabbitmq:3.11-management-alpine</p>
+<ul>
+<li>
+<p>RABBITMQ_DEFAULT_USER</p></li>
+<li>
+<p>RABBITMQ_DEFAULT_PASS</p></li>
+</ul></li>
+</ul>
+<p><strong>Start order:</strong></p>
+<ol start=3D"1">
+<li>
+<p>PostgreSQL:</p></li>
+<li>
+<p>RabbitMQ:</p></li>
+<li>
+<p>Product</p></li>
+<li>
+<p>Counter</p></li>
+<li>
+<p>The remaining services</p></li>
+</ol>
+<p><strong>Port expose:</strong></p>
+<ul>
+<li>
+<p>Postgresql: 5432</p></li>
+<li>
+<p>RabbiMQ: 5672 and 15672</p></li>
+<li>
+<p>proxy: 5000</p></li>
+<li>
+<p>product: 5001</p></li>
+<li>
+<p>counter: 5002</p></li>
+<li>
+<p>web: 8888</p></li>
+</ul>
+<p><strong>Here is your exam:</strong></p>
+<div class=3D"table-wrap">
+<table data-table-width=3D"960" data-layout=3D"wide" data-local-id=3D"cc05c=
+a97-1b0e-4d0e-a580-0a39b10acf1a" class=3D"confluenceTable">
+<colgroup>
+<col>
+<col style=3D"width: 216.0px;">
+<col style=3D"width: 130.0px;">
+<col style=3D"width: 103.0px;">
+<col style=3D"width: 469.0px;">
+</colgroup>
+<tbody>
+<tr>
+<th class=3D"numberingColumn confluenceTh"></th>
+<th data-highlight-colour=3D"#f0f1f2" class=3D"confluenceTh">
+<p><strong>Section</strong></p>
+<p></p></th>
+<th data-highlight-colour=3D"#f0f1f2" class=3D"confluenceTh">
+<p><strong>Subsection</strong></p></th>
+<th data-highlight-colour=3D"#f0f1f2" class=3D"confluenceTh">
+<p><strong>Weight</strong></p></th>
+<th data-highlight-colour=3D"#f0f1f2" class=3D"confluenceTh">
+<p><strong>Requirement</strong></p></th>
+</tr>
+<tr>
+<td class=3D"numberingColumn confluenceTd">1</td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>Preparation</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>&nbsp;</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p></p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<ol start=3D"1">
+<li>
+<p>The infrastructure is hosted on AWS which can be used with a personal or=
+ the OPSWAT Devops training account.</p></li>
+<li>
+<p>Your code should be stored on any VCS such as GitHub, Gitlab=E2=80=A6 It=
+=E2=80=99s supposed to share your code with the examiner</p></li>
+</ol></td>
+</tr>
+<tr>
+<td class=3D"numberingColumn confluenceTd">2</td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>Infrastructure as code</p>
+<p>(Terraform and awscli)</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>&nbsp;</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>20%</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<ol start=3D"1">
+<li>
+<p>Resources: (You should read the full exam to clarify all the requirement=
+s for each resource)</p></li>
+<li>
+<p>All resources are created by Terraform or AWS CLI.</p></li>
+<li>
+<p>Public modules are allowed, but not with basic infrastructure (VPC, Subn=
+et, SG)</p></li>
+<li>
+<p>Use a different workspace for each environment.</p></li>
+<li>
+<p>Using remote S3 backend.</p></li>
+</ol></td>
+</tr>
+<tr>
+<td class=3D"numberingColumn confluenceTd">3</td>
+<td data-highlight-colour=3D"#ffffff" rowspan=3D"4" class=3D"confluenceTd">
+<p>Application deployment</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>Prepare</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p></p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>Pull the above images and push to your Docker private registry</p>
+<p>(You can change the image name if you want)</p></td>
+</tr>
+<tr>
+<td class=3D"numberingColumn confluenceTd">4</td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>Dev environment</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>10%</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<ol start=3D"1">
+<li>
+<p>Create the EC2 and install Docker</p></li>
+<li>
+<p>Prepare Docker-Compose to deploy the dev environment</p></li>
+<li>
+<p>Ensure healthcheck settings</p></li>
+</ol></td>
+</tr>
+<tr>
+<td class=3D"numberingColumn confluenceTd">5</td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>Prod environment</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>20%</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<ol start=3D"1">
+<li>
+<p>Create the EKS cluster with minimal resource capacity</p></li>
+<li>
+<p>Create in-cluster resources by the Declarative method.</p></li>
+<li>
+<p>Create YAML files for all resources</p></li>
+<li>
+<p>Create a Horizontal Pod Autoscaling to apply scale</p></li>
+<li>
+<p>Ensuring security both at rest and in transit.</p></li>
+<li>
+<p>Ensure healthcheck settings</p></li>
+</ol></td>
+</tr>
+<tr>
+<td class=3D"numberingColumn confluenceTd">6</td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>Database</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>10%</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>Using Postgresql by using RDS (use Free-tier option, t3.micro, no HA, no=
+ read-replica setup), ensure using Secret Manager to store sensitive data</=
+p></td>
+</tr>
+<tr>
+<td class=3D"numberingColumn confluenceTd">7</td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>CI/CD</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>&nbsp;</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>20%</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>CI/CD pipeline (can choose AWS CodePipeline or TeamCity, or Github Actio=
+ns) to support application integration and delivery. The pipeline should be=
+:</p>
+<ol start=3D"1">
+<li>
+<p>Scan the image with the Trivy software</p></li>
+<li>
+<p>Push the image to the Docker private registry</p></li>
+<li>
+<p>Deploy the application with the latest image, can choose one of the 2 me=
+chanisms below:&nbsp;</p>
+<ul>
+<li>
+<p>(Optional) Using Argocd to apply the GitOps pull mechanism.</p></li>
+<li>
+<p>(Optional) Using Helm/Kubeclt to apply the GitOps push mechanism.</p></l=
+i>
+</ul></li>
+</ol>
+<p>(You can spin up a new EC2 to deploy TeamCity and Argocd for your own)</=
+p></td>
+</tr>
+<tr>
+<td class=3D"numberingColumn confluenceTd">8</td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>Monitoring System</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>&nbsp;</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<p>20%</p></td>
+<td data-highlight-colour=3D"#ffffff" class=3D"confluenceTd">
+<ol start=3D"1">
+<li>
+<p>Monitoring system (can choose to use Amazon CloudWatch/Grafana) to monit=
+or the system.</p>
+<ol start=3D"1">
+<li>
+<p>A dashboard to monitor: Nodes CPU and Memory, Pods CPU and Memory, API r=
+equests, 4xx, 5xx http requests.</p></li>
+<li>
+<p>Alert if:</p>
+<ul>
+<li>
+<p>The autoscaling scales to the maximum number.</p></li>
+<li>
+<p>There=E2=80=99s an anomaly change in the ELB=E2=80=99s RequestCount.</p>=
+</li>
+<li>
+<p>High memory or CPU usage in any component of application</p></li>
+<li>
+<p>5xx errors</p></li>
+</ul></li>
+</ol></li>
+</ol></td>
+</tr>
+</tbody>
+</table>
+</div>
+<h1 id=3D"FinalExamAnnouncement-Submission">Submission</h1>
+<p>There are 2 parts:</p>
+<ol start=3D"1">
+<li>
+<p><strong>Provide your repository with a friendly format README to describ=
+e the solution for the exam requirement, including sections</strong>:</p>
+<ol start=3D"1">
+<li>
+<p>Summary: Describe the summary of the solution.</p></li>
+<li>
+<p>Architecture: The architecture of the solution.</p></li>
+<li>
+<p>Component description: The Description of each component in the architec=
+ture.</p></li>
+<li>
+<p>The homepage of the application</p></li>
+<li>
+<p>User guideline: The guideline on how to use the source code to provision=
+/deploy components in the architecture.</p></li>
+</ol></li>
+<li>
+<p><strong>Demonstration</strong>:</p>
+<ol start=3D"1">
+<li>
+<p><strong>DevOps Intern Learners</strong>: offline demonstration with 30-4=
+5 minutes per person.</p></li>
+<li>
+<p><strong>Regular Learners (not DevOps Intern)</strong>: a short video to =
+demonstrate your deployment. You can cut the deployment progress because it=
+ takes a long time to complete.</p></li>
+</ol></li>
+</ol>
+<p>Once done, you can <strong>send your submission to</strong> <a class=3D"=
+external-link" href=3D"mailto:cuong.tran@opswat.com" rel=3D"nofollow">cuong=
+.tran@opswat.com</a>.</p>
+<h1 id=3D"FinalExamAnnouncement-Timeline">Timeline</h1>
+<ul>
+<li>
+<p>For Regular Learners, submission deadline: <time datetime=3D"2025-05-20"=
+ class=3D"date-past">20 May 2025</time></p></li>
+<li>
+<p>For DevOps Intern Learners, demonstration date: <time datetime=3D"2025-0=
+5-20" class=3D"date-past">20 May 2025</time></p></li>
+<li>
+<p>Trainer team=E2=80=99s evaluation: from <time datetime=3D"2025-05-21" cl=
+ass=3D"date-past">21 May 2025</time> to <time datetime=3D"2025-05-28" class=
+=3D"date-past">28 May 2025</time></p></li>
+<li>
+<p>Result announcement: <time datetime=3D"2025-05-29" class=3D"date-past">2=
+9 May 2025</time></p></li>
+</ul>
+<p></p>
+<div class=3D"confluence-information-macro confluence-information-macro-inf=
+ormation">
+<span class=3D"aui-icon aui-icon-small aui-iconfont-info confluence-informa=
+tion-macro-icon"></span>
+<div class=3D"confluence-information-macro-body">
+<p>If you have any concerns, feel free to contact <a class=3D"confluence-us=
+erlink user-mention" data-account-id=3D"712020:0b831a2a-2b32-4c7e-8d70-1aaf=
+a5230176" href=3D"https://opswat.atlassian.net/wiki/people/712020:0b831a2a-=
+2b32-4c7e-8d70-1aafa5230176?ref=3Dconfluence" target=3D"_blank" data-linked=
+-resource-id=3D"3161129430" data-linked-resource-version=3D"1" data-linked-=
+resource-type=3D"userinfo" data-base-url=3D"https://opswat.atlassian.net/wi=
+ki">Cuong Tran Nguyen Huy</a> or <a class=3D"confluence-userlink user-menti=
+on" data-account-id=3D"712020:cdda513b-d9ec-468c-b47b-ae3301e6a129" href=3D=
+"https://opswat.atlassian.net/wiki/people/712020:cdda513b-d9ec-468c-b47b-ae=
+3301e6a129?ref=3Dconfluence" target=3D"_blank" data-linked-resource-id=3D"2=
+744975917" data-linked-resource-version=3D"1" data-linked-resource-type=3D"=
+userinfo" data-base-url=3D"https://opswat.atlassian.net/wiki">Ly Doan</a>.<=
+/p>
+</div>
+</div>
+    </div>
+</body>
+</html>
+------=_Part_44_1246697615.1751445889145--

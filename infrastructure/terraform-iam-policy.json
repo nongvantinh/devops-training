@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:*",
+        "iam:*",
+        "rds:*",
+        "ecr:*",
+        "eks:*",
+        "s3:*",
+        "dynamodb:*",
+        "logs:*",
+        "elasticloadbalancing:*",
+        "autoscaling:*",
+        "cloudwatch:*",
+        "route53:*",
+        "acm:*",
+        "secretsmanager:*",
+        "kms:*",
+        "elasticache:*",
+        "sts:GetCallerIdentity",
+        "sts:AssumeRole"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

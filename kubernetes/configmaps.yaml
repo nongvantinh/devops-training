@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: coffeeshop
+data:
+  postgres-db: "coffeeshop"
+  postgres-host: "postgres"
+  postgres-port: "5432"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-config
+  namespace: coffeeshop
+data:
+  rabbitmq-host: "rabbitmq"
+  rabbitmq-port: "5672"
+  rabbitmq-management-port: "15672"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: coffeeshop
+data:
+  web-port: "8888"
+  proxy-port: "5000"
+  product-port: "5001"
+  counter-port: "5002"
+  in-docker: "true"

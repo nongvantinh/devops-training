@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  # Infrastructure services
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-coffeeshop}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.11-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-password}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  # Application services using specific images (as per exam requirements)
+  product:
+    image: ghcr.io/nongvantinh/go-coffeeshop-product:latest
+    environment:
+      APP_NAME: product-service
+    ports:
+      - "5001:5001"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  counter:
+    image: ghcr.io/nongvantinh/go-coffeeshop-counter:latest
+    environment:
+      APP_NAME: counter-service
+      IN_DOCKER: "true"
+      PG_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-coffeeshop}
+      PG_DSN_URL: host=postgres user=${POSTGRES_USER:-postgres} password=${POSTGRES_PASSWORD:-password} dbname=${POSTGRES_DB:-coffeeshop} sslmode=disable
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-password}@rabbitmq:5672/
+      PRODUCT_CLIENT_URL: product:5001
+    ports:
+      - "5002:5002"
+    depends_on:
+      - postgres
+      - rabbitmq
+      - product
+    restart: unless-stopped
+
+  barista:
+    image: ghcr.io/nongvantinh/go-coffeeshop-barista:latest
+    environment:
+      APP_NAME: barista-service
+      IN_DOCKER: "true"
+      PG_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-coffeeshop}
+      PG_DSN_URL: host=postgres user=${POSTGRES_USER:-postgres} password=${POSTGRES_PASSWORD:-password} dbname=${POSTGRES_DB:-coffeeshop} sslmode=disable
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-password}@rabbitmq:5672/
+    depends_on:
+      - postgres
+      - rabbitmq
+    restart: unless-stopped
+
+  kitchen:
+    image: ghcr.io/nongvantinh/go-coffeeshop-kitchen:latest
+    environment:
+      APP_NAME: kitchen-service
+      IN_DOCKER: "true"
+      PG_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-coffeeshop}
+      PG_DSN_URL: host=postgres user=${POSTGRES_USER:-postgres} password=${POSTGRES_PASSWORD:-password} dbname=${POSTGRES_DB:-coffeeshop} sslmode=disable
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-password}@rabbitmq:5672/
+    depends_on:
+      - postgres
+      - rabbitmq
+    restart: unless-stopped
+
+  proxy:
+    image: ghcr.io/nongvantinh/go-coffeeshop-proxy:latest
+    environment:
+      APP_NAME: proxy-service
+      GRPC_PRODUCT_HOST: product
+      GRPC_PRODUCT_PORT: 5001
+      GRPC_COUNTER_HOST: counter
+      GRPC_COUNTER_PORT: 5002
+    ports:
+      - "5000:5000"
+    depends_on:
+      - product
+      - counter
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/nongvantinh/go-coffeeshop-web:latest
+    environment:
+      REVERSE_PROXY_URL: proxy:5000
+      WEB_PORT: 8888
+    ports:
+      - "8888:8888"
+    depends_on:
+      - proxy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  rabbitmq_data:

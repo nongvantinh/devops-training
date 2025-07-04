@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: counter-service
+  namespace: coffeeshop
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: counter-service
+  template:
+    metadata:
+      labels:
+        app: counter-service
+    spec:
+      containers:
+      - name: counter
+        image: ghcr.io/nongvantinh/devops-training:latest
+        env:
+        - name: APP_NAME
+          value: "counter-service"
+        - name: SERVICE_TYPE
+          value: "counter"
+        - name: IN_DOCKER
+          value: "true"
+        - name: PG_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: connection-string
+        - name: PG_DSN_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: dsn-string
+        - name: RABBITMQ_URL
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: connection-string
+        - name: PRODUCT_CLIENT_URL
+          value: "product-service:5001"
+        ports:
+        - containerPort: 5002
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5002
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

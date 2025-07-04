@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barista
+  namespace: coffeeshop
+  labels:
+    app: barista
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: barista
+  template:
+    metadata:
+      labels:
+        app: barista
+    spec:
+      containers:
+      - name: barista
+        image: ghcr.io/nongvantinh/go-coffeeshop-barista:latest
+        env:
+        - name: APP_NAME
+          value: "Barista Service"
+        - name: IN_DOCKER
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: in-docker
+        - name: PG_URL
+          value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable"
+        - name: PG_DSN_URL
+          value: "host=postgres user=$(POSTGRES_USER) password=$(POSTGRES_PASSWORD) dbname=$(POSTGRES_DB) sslmode=disable"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-db
+        - name: RABBITMQ_URL
+          value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASS)@rabbitmq:5672/"
+        - name: RABBITMQ_USER
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: rabbitmq-user
+        - name: RABBITMQ_PASS
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: rabbitmq-pass
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep '[b]arista' || exit 1"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "ps aux | grep '[b]arista' || exit 1"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done;']
+      - name: wait-for-rabbitmq
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z rabbitmq 5672; do echo waiting for rabbitmq; sleep 2; done;']
