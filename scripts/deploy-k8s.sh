@@ -17,22 +17,127 @@ MONITORING_DIR="${SCRIPT_DIR}/../monitoring"
 check_prerequisites() {
     log "Checking prerequisites..."
     
+    # Check if kubectl is installed
     if ! command_exists kubectl; then
         error "kubectl is not installed. Please install kubectl first."
     fi
     
+    log "✓ kubectl is installed"
+    
+    # Check if AWS CLI is installed
     if ! command_exists aws; then
         error "AWS CLI is not installed. Please install AWS CLI first."
     fi
     
+    log "✓ AWS CLI is installed"
+    
+    # Check if AWS credentials are configured
+    if ! aws sts get-caller-identity &> /dev/null; then
+        error "AWS credentials not configured. Please run 'aws configure' or set AWS_PROFILE"
+    fi
+    
+    log "✓ AWS credentials configured"
+    
+    # Check if EKS cluster exists
+    log "Checking if EKS cluster exists..."
+    if ! aws eks describe-cluster --name coffeeshop-prod --region ${AWS_REGION} &> /dev/null; then
+        error "EKS cluster 'coffeeshop-prod' not found in region ${AWS_REGION}."
+        error "Please run the infrastructure deployment first:"
+        error "./scripts/deploy-infrastructure.sh prod"
+    fi
+    
+    log "✓ EKS cluster exists"
+    
+    # Get cluster status
+    local cluster_status=$(aws eks describe-cluster --name coffeeshop-prod --region ${AWS_REGION} --query 'cluster.status' --output text)
+    log "Cluster status: ${cluster_status}"
+    
+    if [ "$cluster_status" != "ACTIVE" ]; then
+        error "EKS cluster is not active (status: ${cluster_status}). Please wait for cluster to be ready."
+    fi
+    
+    log "✓ EKS cluster is active"
+    
+    # Check kubectl configuration
+    log "Checking kubectl configuration..."
+    
+    # Get current context
+    local current_context=$(kubectl config current-context 2>/dev/null || echo "none")
+    log "Current kubectl context: ${current_context}"
+    
+    # Check if kubectl can connect to any cluster
     if ! kubectl cluster-info &> /dev/null; then
-        error "kubectl is not configured or cluster is not accessible. Run: aws eks update-kubeconfig --region ${AWS_REGION} --name <cluster-name>"
+        warn "kubectl cannot connect to any cluster with current configuration"
+        warn "Current context: ${current_context}"
+        
+        # Try to configure kubectl for EKS
+        log "Attempting to configure kubectl for EKS cluster..."
+        if aws eks update-kubeconfig --region ${AWS_REGION} --name coffeeshop-prod; then
+            log "✓ kubectl configured for EKS cluster"
+            
+            # Wait a moment for configuration to take effect
+            sleep 2
+            
+            # Test the configuration
+            if ! kubectl cluster-info &> /dev/null; then
+                error "kubectl configuration failed. EKS cluster may not be ready yet."
+            fi
+        else
+            error "Failed to configure kubectl for EKS cluster"
+        fi
     fi
     
-    if ! kubectl get nodes &> /dev/null; then
-        error "Cannot access Kubernetes cluster nodes. Please check your EKS configuration."
+    # Verify we're connected to the correct EKS cluster
+    local cluster_info=$(kubectl cluster-info 2>/dev/null || echo "")
+    if [[ ! "$cluster_info" =~ eks.*amazonaws\.com ]]; then
+        warn "kubectl may not be connected to an EKS cluster"
+        warn "Current cluster info:"
+        kubectl cluster-info 2>/dev/null || echo "Unable to get cluster info"
+        warn ""
+        warn "Attempting to reconfigure kubectl for EKS..."
+        
+        if aws eks update-kubeconfig --region ${AWS_REGION} --name coffeeshop-prod; then
+            log "✓ kubectl reconfigured for EKS cluster"
+            sleep 2
+        else
+            error "Failed to configure kubectl for EKS cluster"
+        fi
     fi
     
+    log "✓ kubectl is connected to EKS cluster"
+    
+    # Wait for cluster to be fully ready with nodes
+    log "Waiting for EKS cluster nodes to be ready..."
+    local retry_count=0
+    local max_retries=30
+    
+    while [ $retry_count -lt $max_retries ]; do
+        if kubectl get nodes &> /dev/null; then
+            local node_count=$(kubectl get nodes --no-headers | wc -l)
+            local ready_nodes=$(kubectl get nodes --no-headers | grep -c "Ready" || echo "0")
+            
+            if [ "$ready_nodes" -gt 0 ]; then
+                log "✓ EKS cluster has $ready_nodes ready nodes out of $node_count total"
+                kubectl get nodes
+                break
+            else
+                log "EKS cluster has $node_count nodes but none are ready yet..."
+            fi
+        else
+            log "EKS cluster nodes not accessible yet..."
+        fi
+        
+        log "Waiting for nodes to be ready... ($((retry_count + 1))/$max_retries)"
+        sleep 10
+        retry_count=$((retry_count + 1))
+    done
+    
+    if [ $retry_count -eq $max_retries ]; then
+        error "EKS cluster nodes are not ready after $((max_retries * 10)) seconds."
+        error "Please check your EKS cluster configuration and node group status."
+    fi
+    
+    # Check required directories
     if [ ! -d "${KUBERNETES_DIR}" ]; then
         error "Kubernetes manifests directory not found: ${KUBERNETES_DIR}"
     fi
@@ -41,7 +146,7 @@ check_prerequisites() {
         warn "Monitoring directory not found: ${MONITORING_DIR}. Monitoring deployment will be skipped."
     fi
     
-    log "Prerequisites check passed!"
+    log "✅ All prerequisites check passed!"
 }
 
 create_namespaces() {
@@ -300,6 +405,23 @@ deploy_monitoring() {
 
 verify_deployment() {
     log "Verifying deployment..."
+    
+    # Show current kubectl configuration status
+    info ""
+    info "=== Kubectl Configuration ==="
+    local current_context=$(kubectl config current-context 2>/dev/null || echo "none")
+    info "Current context: ${current_context}"
+    
+    if kubectl cluster-info &> /dev/null; then
+        info "✓ kubectl is connected to cluster"
+        kubectl cluster-info
+    else
+        warn "⚠️  kubectl connection issue"
+    fi
+    
+    info ""
+    info "=== Cluster Nodes ==="
+    kubectl get nodes -o wide
     
     info ""
     info "=== Pod Status in ${NAMESPACE} ==="

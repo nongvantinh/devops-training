@@ -273,9 +273,16 @@ deploy_infrastructure() {
         # Initialize Terraform without backend
         log "Initializing Terraform..."
         if ! terraform init; then
-            # Restore backup if init fails
-            [ -f "main.tf.backup" ] && mv main.tf.backup main.tf
-            error "Terraform initialization failed"
+            warn "Terraform init failed, attempting to migrate backend configuration..."
+            if terraform init -migrate-state; then
+                log "Backend migration successful"
+            elif terraform init -reconfigure; then
+                log "Backend reconfiguration successful"
+            else
+                # Restore backup if init fails
+                [ -f "main.tf.backup" ] && mv main.tf.backup main.tf
+                error "Terraform initialization failed even after migration attempts"
+            fi
         fi
         
         # Create workspace if it doesn't exist
@@ -326,8 +333,16 @@ deploy_infrastructure() {
     
     # Regular deployment (non-dry-run)
     log "Initializing Terraform..."
+    # Try normal init first, then handle backend migration if needed
     if ! terraform init; then
-        error "Terraform initialization failed"
+        warn "Terraform init failed, attempting to migrate backend configuration..."
+        if terraform init -migrate-state; then
+            log "Backend migration successful"
+        elif terraform init -reconfigure; then
+            log "Backend reconfiguration successful"
+        else
+            error "Terraform initialization failed even after migration attempts"
+        fi
     fi
     
     if ! terraform workspace list | grep -q ${ENVIRONMENT}; then
@@ -382,6 +397,12 @@ configure_kubectl() {
         
         if ! aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}; then
             warn "Failed to configure kubectl for EKS cluster"
+            return 1
+        fi
+        
+        # Verify kubectl is working
+        if ! kubectl cluster-info &> /dev/null; then
+            error "kubectl configuration failed. EKS cluster may not be ready yet."
             return 1
         fi
         

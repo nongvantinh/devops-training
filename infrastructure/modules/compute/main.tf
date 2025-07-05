@@ -85,8 +85,6 @@ resource "aws_eks_node_group" "main" {
   subnet_ids      = var.private_subnets
 
   capacity_type  = "ON_DEMAND"
-  instance_types = var.node_instance_types
-  ami_type       = "AL2_x86_64"
 
   scaling_config {
     desired_size = var.desired_capacity

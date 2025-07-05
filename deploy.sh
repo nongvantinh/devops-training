@@ -131,10 +131,27 @@ deploy_aws_prod() {
     fi
     
     # Deploy infrastructure
-    ./scripts/deploy-infrastructure.sh prod
+    if ! ./scripts/deploy-infrastructure.sh prod; then
+        error "Infrastructure deployment failed. Cannot proceed with Kubernetes deployment."
+        exit 1
+    fi
+    
+    # Allow some time for EKS cluster to be fully ready
+    log "Waiting for EKS cluster to be fully initialized..."
+    sleep 30
     
     # Deploy to Kubernetes
-    ./scripts/deploy-k8s.sh
+    log "Deploying to Kubernetes..."
+    if ! ./scripts/deploy-k8s.sh; then
+        error "Kubernetes deployment failed. Infrastructure is deployed but application deployment failed."
+        echo
+        info "💡 Troubleshooting tips:"
+        info "1. Check EKS cluster status: aws eks describe-cluster --name coffeeshop-prod --region us-west-2"
+        info "2. Configure kubectl manually: aws eks update-kubeconfig --region us-west-2 --name coffeeshop-prod"
+        info "3. Check cluster nodes: kubectl get nodes"
+        info "4. View deployment logs: kubectl logs -f deployment/<service-name> -n coffeeshop"
+        exit 1
+    fi
     
     log "🎉 AWS production deployment completed successfully!"
     echo
@@ -188,14 +205,50 @@ cleanup_resources() {
     warn "Make sure you've backed up any important data"
     echo
     
-    read -p "Are you sure? (y/N): " -n 1 -r
+    # Check what environments might exist
+    info "Checking for deployed environments..."
+    local environments_found=""
+    
+    if [ -d "infrastructure/terraform.tfstate.d/dev" ] && [ "$(ls -A infrastructure/terraform.tfstate.d/dev 2>/dev/null)" ]; then
+        environments_found="${environments_found} dev"
+    fi
+    
+    if [ -d "infrastructure/terraform.tfstate.d/staging" ] && [ "$(ls -A infrastructure/terraform.tfstate.d/staging 2>/dev/null)" ]; then
+        environments_found="${environments_found} staging"
+    fi
+    
+    if [ -d "infrastructure/terraform.tfstate.d/prod" ] && [ "$(ls -A infrastructure/terraform.tfstate.d/prod 2>/dev/null)" ]; then
+        environments_found="${environments_found} prod"
+    fi
+    
+    if [ -n "$environments_found" ]; then
+        info "Found deployed environments:$environments_found"
+        echo
+        info "This will clean up ALL environments. If you want to clean up specific environments:"
+        for env in $environments_found; do
+            info "  ./scripts/cleanup-infrastructure.sh $env"
+        done
+        echo
+    fi
+    
+    read -p "Are you sure you want to clean up ALL environments? (y/N): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         info "Cleanup cancelled"
         exit 0
     fi
     
-    ./scripts/cleanup-infrastructure.sh
+    # Clean up all found environments
+    for env in $environments_found; do
+        log "Cleaning up environment: $env"
+        ./scripts/cleanup-infrastructure.sh --force "$env" || warn "Cleanup of $env environment may have failed"
+    done
+    
+    # If no environments found, run default cleanup
+    if [ -z "$environments_found" ]; then
+        log "No terraform workspaces found, running default cleanup..."
+        ./scripts/cleanup-infrastructure.sh
+    fi
     
     log "🎉 Cleanup completed!"
 }

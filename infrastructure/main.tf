@@ -8,7 +8,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "coffeeshop-terraform-state-dev-ubuntu"
+    bucket = "coffeeshop-terraform-state-prod-ubuntu"
     key            = "terraform.tfstate"
     region         = "us-west-2"
     dynamodb_table = "terraform-state-locks"

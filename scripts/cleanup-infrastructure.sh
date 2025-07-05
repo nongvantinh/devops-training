@@ -8,7 +8,8 @@ source "$(dirname "$0")/common/utils.sh"
 
 AWS_REGION="us-west-2"
 TERRAFORM_DIR="infrastructure"
-ENVIRONMENT="dev"
+ENVIRONMENT="dev"  # Default, will be overridden by argument parsing
+SCRIPT_DIR="$(dirname "$0")"
 
 # Color codes for output
 RED='\033[0;31m'
@@ -16,6 +17,39 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+cleanup_kubernetes_resources() {
+    if [ "$ENVIRONMENT" = "prod" ]; then
+        log "🐙 Cleaning up Kubernetes resources from EKS cluster..."
+        
+        # Check if kubectl is configured and EKS cluster exists
+        if command_exists kubectl && aws eks describe-cluster --name coffeeshop-prod --region ${AWS_REGION} &> /dev/null; then
+            log "Configuring kubectl for EKS cluster..."
+            if aws eks update-kubeconfig --region ${AWS_REGION} --name coffeeshop-prod &> /dev/null; then
+                log "Removing CoffeeShop application from Kubernetes..."
+                
+                # Use the deploy-k8s.sh cleanup if available
+                if [ -f "${SCRIPT_DIR}/deploy-k8s.sh" ]; then
+                    log "Using deploy-k8s.sh cleanup..."
+                    "${SCRIPT_DIR}/deploy-k8s.sh" cleanup || warn "Some Kubernetes resources may not have been cleaned up"
+                else
+                    # Manual cleanup
+                    log "Manually cleaning up Kubernetes namespaces..."
+                    kubectl delete namespace coffeeshop --ignore-not-found=true
+                    kubectl delete namespace monitoring --ignore-not-found=true
+                fi
+                
+                log "✅ Kubernetes resources cleaned up"
+            else
+                warn "Failed to configure kubectl for EKS cluster"
+            fi
+        else
+            log "EKS cluster not found or kubectl not available, skipping Kubernetes cleanup"
+        fi
+    else
+        log "Environment is not prod, skipping Kubernetes cleanup"
+    fi
+}
 
 cleanup_terraform() {
     log "📦 Cleaning up Terraform-managed resources..."
@@ -205,6 +239,12 @@ manual_cleanup_resources() {
     # Delete RDS instances
     local rds_instances=$(aws rds describe-db-instances --region ${AWS_REGION} --query 'DBInstances[?contains(DBInstanceIdentifier, `coffeeshop`)].DBInstanceIdentifier' --output text)
     if [ -n "$rds_instances" ]; then
+        log "Disabling deletion protection for RDS instances: $rds_instances"
+        echo "$rds_instances" | xargs -I {} aws rds modify-db-instance --region ${AWS_REGION} --db-instance-identifier {} --no-deletion-protection --apply-immediately
+        
+        # Wait a moment for the modification to take effect
+        sleep 10
+        
         log "Deleting RDS instances: $rds_instances"
         echo "$rds_instances" | xargs -I {} aws rds delete-db-instance --region ${AWS_REGION} --db-instance-identifier {} --skip-final-snapshot
     fi
@@ -236,9 +276,12 @@ manual_cleanup_resources() {
 }
 
 usage() {
-    echo "Usage: $0 [OPTIONS]"
+    echo "Usage: $0 [OPTIONS] [ENVIRONMENT]"
     echo ""
     echo "CoffeeShop Infrastructure Cleanup Script"
+    echo ""
+    echo "Arguments:"
+    echo "  ENVIRONMENT         Target environment (dev|staging|prod) [default: dev]"
     echo ""
     echo "Options:"
     echo "  --terraform-only    Only run terraform destroy"
@@ -248,8 +291,9 @@ usage() {
     echo "  -h, --help          Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0                   # Full cleanup with confirmations"
-    echo "  $0 --terraform-only  # Only terraform destroy"
+    echo "  $0                   # Full cleanup of dev environment"
+    echo "  $0 prod              # Full cleanup of prod environment (EKS)"
+    echo "  $0 --terraform-only prod  # Only terraform destroy for prod"
     echo "  $0 --verify-only     # Check what resources exist"
     echo ""
 }
@@ -283,11 +327,22 @@ main() {
                 usage
                 exit 0
                 ;;
+            dev|staging|prod)
+                ENVIRONMENT="$1"
+                shift
+                ;;
             *)
                 error "Unknown parameter: $1"
                 ;;
         esac
     done
+    
+    # Validate environment
+    if [[ ! "${ENVIRONMENT}" =~ ^(dev|staging|prod)$ ]]; then
+        error "Invalid environment: ${ENVIRONMENT}. Must be one of: dev, staging, prod"
+    fi
+    
+    log "Cleaning up environment: ${ENVIRONMENT}"
     
     # Check prerequisites
     if [ "$verify_only" = false ]; then
@@ -328,11 +383,18 @@ main() {
     export AWS_PROFILE=devops-training
     log "Using AWS profile: $AWS_PROFILE"
     
-    # Run cleanup steps
+    # Run cleanup steps in the correct order
+    # 1. First cleanup Kubernetes resources (before destroying EKS cluster)
+    if [ "$terraform_only" = false ]; then
+        cleanup_kubernetes_resources
+    fi
+    
+    # 2. Then cleanup Terraform-managed infrastructure
     if [ "$manual_only" = false ]; then
         cleanup_terraform
     fi
     
+    # 3. Finally cleanup any remaining manual resources
     if [ "$terraform_only" = false ]; then
         cleanup_ecr_repositories
         manual_cleanup_resources
