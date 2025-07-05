@@ -1,0 +1,16 @@
+regions:
+  - "*"
+
+blocklist:
+  - "1"  # Example account ID to block
+
+accounts:
+  "123264127435":
+    alias: "devops-training-dev"
+    filters:
+      IAMUser:
+        - "root"  # keep the root user
+      TimestreamDatabase:
+        - ".*"
+      RoboMakerSimulationApplication:
+        - ".*"

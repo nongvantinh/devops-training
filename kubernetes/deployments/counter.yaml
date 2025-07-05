@@ -35,7 +35,10 @@ spec:
               name: coffeeshop-secrets
               key: postgres-connection-string
         - name: PG_DSN_URL
-          value: "host=postgres user=$(POSTGRES_USER) password=$(POSTGRES_PASSWORD) dbname=$(POSTGRES_DB) sslmode=disable"
+          valueFrom:
+            secretKeyRef:
+              name: coffeeshop-secrets
+              key: postgres-dsn-string
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
@@ -52,7 +55,10 @@ spec:
               name: postgres-secret
               key: postgres-db
         - name: RABBITMQ_URL
-          value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASS)@rabbitmq:5672/"
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: rabbitmq-url
         - name: RABBITMQ_USER
           valueFrom:
             secretKeyRef:

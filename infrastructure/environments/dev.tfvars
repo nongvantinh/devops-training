@@ -7,7 +7,7 @@ private_subnets = ["10.0.10.0/24", "10.0.11.0/24"]
 
 # EC2 Configuration for development
 instance_type = "t3.medium"
-key_name      = "" # Add your AWS key pair name here
+key_name      = "coffeeshop-dev-key" # SSH key pair for EC2 access
 
 # Database Configuration
 db_name     = "coffeeshop_dev"

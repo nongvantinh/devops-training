@@ -8,7 +8,8 @@ Choose your deployment path:
 
 ```bash
 ./deploy.sh local              # Local development (2 min, $0)
-./deploy.sh setup-aws          # Configure AWS (one-time)
+# Configure AWS (one-time)
+export AWS_PROFILE=devops-training && ./deploy.sh setup-aws
 ./deploy.sh aws-dev            # AWS development (~$50/month)
 ./deploy.sh aws-prod           # AWS production (~$150-300/month)
 ./deploy.sh cleanup            # Clean up AWS resources
@@ -45,6 +46,29 @@ Choose your deployment path:
 2. **Try AWS**: `./deploy.sh setup-aws` then `./deploy.sh aws-dev`
 3. **Production**: `./deploy.sh aws-prod`
 4. **Cleanup**: `./deploy.sh cleanup`
+
+## 🧹 Cleanup
+
+For comprehensive cleanup of AWS resources:
+
+```bash
+# Check what resources exist
+./scripts/cleanup-infrastructure.sh --verify-only prod
+
+# Preview what would be deleted (dry-run)
+./scripts/cleanup-infrastructure.sh --dry-run prod
+
+# Full cleanup with confirmation
+./scripts/cleanup-infrastructure.sh prod
+
+# Terraform-only cleanup
+./scripts/cleanup-infrastructure.sh --terraform-only prod
+
+# Full cleanup without confirmation prompts
+./scripts/cleanup-infrastructure.sh --force prod
+```
+
+The unified cleanup script handles resource dependencies correctly, provides detailed logging, and eliminates the need for manual cleanup. It supports multiple modes including dry-run for safe preview of operations.
 
 **💰 Cost Warning**: AWS deployments cost real money (~$50-300/month)
 

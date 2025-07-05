@@ -64,18 +64,18 @@ spec:
             cpu: "500m"
       volumes:
       - name: rabbitmq-storage
-        persistentVolumeClaim:
-          claimName: rabbitmq-pvc
+        emptyDir: {}
 ---
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: rabbitmq-pvc
-  namespace: coffeeshop
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: gp2
-  resources:
-    requests:
-      storage: 5Gi
+# PVC temporarily disabled due to EBS permission issues
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: rabbitmq-pvc
+#   namespace: coffeeshop
+# spec:
+#   accessModes:
+#     - ReadWriteOnce
+#   storageClassName: gp2
+#   resources:
+#     requests:
+#       storage: 5Gi

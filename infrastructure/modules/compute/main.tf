@@ -9,6 +9,17 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
+# Data source for EKS optimized AMI
+data "aws_ami" "eks_optimized" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amazon-eks-node-1.28-v*"]
+  }
+}
+
 # User data script for EC2 instance
 locals {
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
@@ -55,6 +66,11 @@ resource "aws_eks_cluster" "main" {
     public_access_cidrs     = ["0.0.0.0/0"]
   }
 
+  access_config {
+    authentication_mode = "API_AND_CONFIG_MAP"
+    bootstrap_cluster_creator_admin_permissions = true
+  }
+
   encryption_config {
     provider {
       key_arn = aws_kms_key.eks[0].arn
@@ -85,6 +101,8 @@ resource "aws_eks_node_group" "main" {
   subnet_ids      = var.private_subnets
 
   capacity_type  = "ON_DEMAND"
+  ami_type       = "AL2_x86_64"
+  instance_types = var.node_instance_types
 
   scaling_config {
     desired_size = var.desired_capacity
@@ -94,11 +112,6 @@ resource "aws_eks_node_group" "main" {
 
   update_config {
     max_unavailable = 1
-  }
-
-  launch_template {
-    id      = aws_launch_template.eks_nodes[0].id
-    version = aws_launch_template.eks_nodes[0].latest_version
   }
 
   depends_on = [
@@ -117,7 +130,7 @@ resource "aws_launch_template" "eks_nodes" {
   count = var.environment == "prod" ? 1 : 0
 
   name_prefix   = "${var.environment}-eks-nodes-"
-  image_id      = data.aws_ami.amazon_linux.id
+  image_id      = data.aws_ami.eks_optimized.id
   instance_type = var.node_instance_types[0]
 
   vpc_security_group_ids = var.security_groups
@@ -161,4 +174,30 @@ resource "aws_cloudwatch_log_group" "eks_cluster" {
   tags = merge(var.tags, {
     Name = "${var.environment}-eks-logs"
   })
+}
+
+# EKS Access Entry for IAM User
+resource "aws_eks_access_entry" "admin_user" {
+  count = var.environment == "prod" ? 1 : 0
+
+  cluster_name  = aws_eks_cluster.main[0].name
+  principal_arn = "arn:aws:iam::123264127435:user/devops-training-user"
+  type          = "STANDARD"
+
+  depends_on = [aws_eks_cluster.main]
+}
+
+# EKS Access Policy Association for admin access
+resource "aws_eks_access_policy_association" "admin_user_policy" {
+  count = var.environment == "prod" ? 1 : 0
+
+  cluster_name  = aws_eks_cluster.main[0].name
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  principal_arn = aws_eks_access_entry.admin_user[0].principal_arn
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.admin_user]
 }

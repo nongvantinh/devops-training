@@ -76,3 +76,11 @@ resource "aws_iam_role_policy_attachment" "eks_registry_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
   role       = aws_iam_role.eks_node_group[0].name
 }
+
+# Add EBS CSI driver policy for persistent volumes
+resource "aws_iam_role_policy_attachment" "eks_ebs_csi_policy" {
+  count = var.environment == "prod" ? 1 : 0
+
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.eks_node_group[0].name
+}

@@ -37,7 +37,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: rabbitmq-secret
-              key: connection-string
+              key: rabbitmq-url
         - name: PRODUCT_CLIENT_URL
           value: "product-service:5001"
         ports:

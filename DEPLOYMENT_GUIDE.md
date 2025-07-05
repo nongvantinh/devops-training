@@ -228,12 +228,15 @@ kubectl rollout undo deployment/<service-name>
 # Complete cleanup (stops all billing)
 ./deploy.sh cleanup
 
-# Verify cleanup
-./scripts/cleanup-infrastructure.sh --verify-only
-
-# Emergency cleanup
-./scripts/cleanup-infrastructure.sh --force
+# Advanced cleanup options (unified script)
+./scripts/cleanup-infrastructure.sh --verify-only prod    # Check what exists
+./scripts/cleanup-infrastructure.sh prod                  # Full cleanup
+./scripts/cleanup-infrastructure.sh --terraform-only prod # Terraform only
+./scripts/cleanup-infrastructure.sh --manual-only prod    # Manual only
+./scripts/cleanup-infrastructure.sh --force prod          # Skip prompts
 ```
+
+The unified cleanup script handles resource dependencies correctly and eliminates manual cleanup needs.
 
 **Important**: Always clean up AWS resources when done to avoid charges!
 

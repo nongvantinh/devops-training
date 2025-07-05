@@ -191,12 +191,14 @@ docker ps  # Check if containers are running
 # Complete cleanup (stops all billing)
 ./deploy.sh cleanup
 
-# Check what resources exist
-./scripts/cleanup-infrastructure.sh --verify-only
-
-# Emergency cleanup (if script fails)
-./scripts/cleanup-infrastructure.sh --force
+# Unified cleanup script options
+./scripts/cleanup-infrastructure.sh --verify-only prod    # Check what exists
+./scripts/cleanup-infrastructure.sh prod                  # Full cleanup
+./scripts/cleanup-infrastructure.sh --terraform-only prod # Terraform only
+./scripts/cleanup-infrastructure.sh --force prod          # Skip prompts
 ```
+
+The unified cleanup script handles resource dependencies correctly and eliminates the need for manual cleanup.
 
 **💰 Important**: Always clean up AWS resources when done to avoid charges!
 

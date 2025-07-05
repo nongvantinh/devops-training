@@ -410,6 +410,201 @@ configure_kubectl() {
     fi
 }
 
+deploy_to_ec2() {
+    if [ "$DRY_RUN" = true ]; then
+        log "[DRY RUN] Would deploy application to EC2 instance"
+        return 0
+    fi
+    
+    if [ "${ENVIRONMENT}" != "dev" ]; then
+        return 0  # Only deploy to EC2 for dev environment
+    fi
+    
+    log "Deploying application to EC2 instance..."
+    
+    # Get EC2 instance IP
+    cd ${TERRAFORM_DIR}
+    local instance_ip=$(terraform output -raw dev_instance_public_ip 2>/dev/null || echo '')
+    cd ..
+    
+    if [ -z "$instance_ip" ]; then
+        error "Could not get EC2 instance IP from Terraform outputs"
+        return 1
+    fi
+    
+    # Check for SSH key
+    local ssh_key_path="scripts/coffeeshop-dev-key.pem"
+    if [ ! -f "$ssh_key_path" ]; then
+        ssh_key_path="coffeeshop-dev-key.pem"
+        if [ ! -f "$ssh_key_path" ]; then
+            error "SSH key not found. Expected: scripts/coffeeshop-dev-key.pem"
+            info "Make sure the SSH key is in the correct location"
+            return 1
+        fi
+    fi
+    
+    # Test SSH connection
+    log "Testing SSH connection to $instance_ip..."
+    if ! ssh -i "$ssh_key_path" -o ConnectTimeout=30 -o StrictHostKeyChecking=no ec2-user@$instance_ip "echo 'SSH connection successful'" 2>/dev/null; then
+        error "Cannot connect to EC2 instance via SSH"
+        info "Please check:"
+        info "1. SSH key path: $ssh_key_path"
+        info "2. Security group allows SSH from your IP"
+        info "3. Instance is running and ready"
+        return 1
+    fi
+    
+    # Create docker-compose file for AWS deployment
+    log "Creating docker-compose configuration for EC2 deployment..."
+    cat > docker-compose-aws.yml << 'EOF'
+services:
+  # Infrastructure services first
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_DB: coffeeshop
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.11-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  # Application services using public images
+  product:
+    image: ghcr.io/nongvantinh/go-coffeeshop-product:latest
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  counter:
+    image: ghcr.io/nongvantinh/go-coffeeshop-counter:latest
+    ports:
+      - "5002:5002"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  barista:
+    image: ghcr.io/nongvantinh/go-coffeeshop-barista:latest
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  kitchen:
+    image: ghcr.io/nongvantinh/go-coffeeshop-kitchen:latest
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/nongvantinh/devops-training:latest
+    ports:
+      - "8888:8888"
+    depends_on:
+      - product
+      - counter
+    restart: unless-stopped
+
+  proxy:
+    image: ghcr.io/nongvantinh/go-coffeeshop-proxy:latest
+    ports:
+      - "80:80"
+      - "5000:5000"
+    depends_on:
+      - product
+      - counter
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+EOF
+
+    # Deploy application to EC2
+    log "Deploying application to EC2 instance..."
+    
+    # Copy docker-compose file to EC2
+    scp -i "$ssh_key_path" -o StrictHostKeyChecking=no docker-compose-aws.yml ec2-user@$instance_ip:/opt/coffeeshop/
+    
+    # Deploy application
+    ssh -i "$ssh_key_path" -o StrictHostKeyChecking=no ec2-user@$instance_ip << 'ENDSSH'
+cd /opt/coffeeshop
+
+# Stop any existing containers
+docker-compose -f docker-compose-aws.yml down || true
+
+# Pull and start services
+docker-compose -f docker-compose-aws.yml pull
+docker-compose -f docker-compose-aws.yml up -d
+
+# Wait for services to start
+sleep 30
+
+# Check service health
+docker-compose -f docker-compose-aws.yml ps
+
+echo "Application deployment completed!"
+ENDSSH
+
+    # Clean up local files
+    rm -f docker-compose-aws.yml
+    
+    log "✅ Application successfully deployed to EC2!"
+    info "🌐 Your CoffeeShop application is accessible at:"
+    info "   - Web Application: http://$instance_ip:8888"
+    info "   - Proxy API: http://$instance_ip:5000"
+    info "   - HTTP Proxy: http://$instance_ip:80"
+    info "   - RabbitMQ Management: http://$instance_ip:15672 (admin/password)"
+    
+    return 0
+}
+
 show_deployment_info() {
     info ""
     info "Deployment Summary:"
@@ -430,8 +625,7 @@ show_deployment_info() {
         info ""
         info "Development Environment:"
         info "- Instance IP: ${DEV_IP}"
-        info "- Next step: Connect to the EC2 instance and run docker-compose"
-        info "- SSH command: ssh -i your-key.pem ec2-user@${DEV_IP}"
+        info "- Application deployed and accessible at http://${DEV_IP}:8888"
         
     elif [ "${ENVIRONMENT}" = "prod" ]; then
         info ""

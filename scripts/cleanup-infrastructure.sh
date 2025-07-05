@@ -1,6 +1,7 @@
 #!/bin/bash
 # CoffeeShop Infrastructure Cleanup Script
 # This script safely removes all AWS resources created by the DevOps training project
+# Unified script with comprehensive resource cleanup and dependency management
 
 set -e
 
@@ -17,6 +18,134 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Global variable to store all tagged resources
+ALL_TAGGED_RESOURCES=""
+
+# Function to get all resources tagged with Environment
+get_all_tagged_resources() {
+    if [ -z "$ALL_TAGGED_RESOURCES" ]; then
+        ALL_TAGGED_RESOURCES=$(aws resourcegroupstaggingapi get-resources \
+            --tag-filters "Key=Environment,Values=${ENVIRONMENT}" \
+            --query 'ResourceTagMappingList[].ResourceARN' \
+            --output text --region ${AWS_REGION} 2>/dev/null | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' || echo "")
+    fi
+    echo "$ALL_TAGGED_RESOURCES"
+}
+
+# Function to extract resource IDs from ARNs
+extract_resource_ids() {
+    local resource_type="$1"
+    local arns="$2"
+    
+    case "$resource_type" in
+        "ec2-instance")
+            echo "$arns" | grep -o 'instance/i-[a-zA-Z0-9]*' | cut -d'/' -f2 | grep -v '^[[:space:]]*$' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//' || echo ""
+            ;;
+        "nat-gateway")
+            echo "$arns" | grep -o 'natgateway/nat-[a-zA-Z0-9]*' | cut -d'/' -f2 | grep -v '^[[:space:]]*$' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//' || echo ""
+            ;;
+        "security-group")
+            echo "$arns" | grep -o 'security-group/sg-[a-zA-Z0-9]*' | cut -d'/' -f2 | grep -v '^[[:space:]]*$' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//' || echo ""
+            ;;
+        "subnet")
+            echo "$arns" | grep -o 'subnet/subnet-[a-zA-Z0-9]*' | cut -d'/' -f2 | grep -v '^[[:space:]]*$' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//' || echo ""
+            ;;
+        "vpc")
+            echo "$arns" | grep -o 'vpc/vpc-[a-zA-Z0-9]*' | cut -d'/' -f2 | grep -v '^[[:space:]]*$' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//' || echo ""
+            ;;
+        "rds-parameter-group")
+            echo "$arns" | grep -o 'pg:[^[:space:]]*' | cut -d':' -f2 | grep -v '^[[:space:]]*$' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//' || echo ""
+            ;;
+        "rds-subnet-group")
+            echo "$arns" | grep -o 'subgrp:[^[:space:]]*' | cut -d':' -f2 | grep -v '^[[:space:]]*$' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//' || echo ""
+            ;;
+        "kms-key")
+            echo "$arns" | grep -o 'key/[a-zA-Z0-9-]*' | cut -d'/' -f2 | grep -v '^[[:space:]]*$' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//' || echo ""
+            ;;
+        "elasticache-snapshot")
+            echo "$arns" | grep -o 'arn:aws:elasticache:[^:]*:[^:]*:snapshot:[^[:space:]]*' | sed 's/.*:snapshot://' | grep -v '^[[:space:]]*$' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//' || echo ""
+            ;;
+    esac
+}
+
+# Function to wait for resource deletion with timeout
+wait_for_resource_deletion() {
+    local resource_type="$1"
+    local resource_id="$2"
+    local max_attempts=30
+    local attempt=0
+    
+    log "Waiting for ${resource_type} ${resource_id} to be deleted..."
+    
+    while [ $attempt -lt $max_attempts ]; do
+        case "$resource_type" in
+            "nat-gateway")
+                local state=$(aws ec2 describe-nat-gateways --nat-gateway-ids "$resource_id" --region ${AWS_REGION} --query 'NatGateways[0].State' --output text 2>/dev/null || echo "deleted")
+                if [ "$state" = "deleted" ] || [ "$state" = "None" ]; then
+                    log "✅ NAT Gateway $resource_id deleted"
+                    return 0
+                fi
+                ;;
+            "instance")
+                local state=$(aws ec2 describe-instances --instance-ids "$resource_id" --region ${AWS_REGION} --query 'Reservations[0].Instances[0].State.Name' --output text 2>/dev/null || echo "terminated")
+                if [ "$state" = "terminated" ] || [ "$state" = "None" ]; then
+                    log "✅ Instance $resource_id terminated"
+                    return 0
+                fi
+                ;;
+        esac
+        
+        sleep 10
+        ((attempt++))
+    done
+    
+    warn "⚠️  Timeout waiting for ${resource_type} ${resource_id} to be deleted"
+    return 1
+}
+
+# Function to show current resources
+show_current_resources() {
+    log "🔍 Checking current resources with Environment=${ENVIRONMENT} tag:"
+    
+    # Clear cache to get fresh data
+    ALL_TAGGED_RESOURCES=""
+    local tagged_resources=$(get_all_tagged_resources)
+    
+    if [ -n "$tagged_resources" ]; then
+        echo ""
+        echo -e "${BLUE}Current Resources:${NC}"
+        echo "$tagged_resources" | tr ' ' '\n' | while read -r arn; do
+            if [ -n "$arn" ] && [[ "$arn" =~ ^arn:aws: ]]; then
+                case "$arn" in
+                    *":snapshot:"*)
+                        local resource_type="elasticache-snapshot"
+                        local resource_id=$(echo "$arn" | sed 's/.*:snapshot://')
+                        ;;
+                    *)
+                        local resource_type=$(echo "$arn" | cut -d':' -f6 | cut -d'/' -f1)
+                        local resource_id=$(echo "$arn" | cut -d':' -f6 | cut -d'/' -f2)
+                        ;;
+                esac
+                echo "  $resource_type: $resource_id"
+            fi
+        done
+        
+        echo ""
+        echo -e "${BLUE}Resource Summary:${NC}"
+        echo "  EC2 Instances: $(extract_resource_ids "ec2-instance" "$tagged_resources" | wc -w)"
+        echo "  NAT Gateways: $(extract_resource_ids "nat-gateway" "$tagged_resources" | wc -w)"
+        echo "  Security Groups: $(extract_resource_ids "security-group" "$tagged_resources" | wc -w)"
+        echo "  Subnets: $(extract_resource_ids "subnet" "$tagged_resources" | wc -w)"
+        echo "  VPCs: $(extract_resource_ids "vpc" "$tagged_resources" | wc -w)"
+        echo "  RDS Parameter Groups: $(extract_resource_ids "rds-parameter-group" "$tagged_resources" | wc -w)"
+        echo "  RDS Subnet Groups: $(extract_resource_ids "rds-subnet-group" "$tagged_resources" | wc -w)"
+        echo "  KMS Keys: $(extract_resource_ids "kms-key" "$tagged_resources" | wc -w)"
+        echo "  ElastiCache Snapshots: $(extract_resource_ids "elasticache-snapshot" "$tagged_resources" | wc -w)"
+    else
+        log "No resources found with Environment=${ENVIRONMENT} tag"
+    fi
+}
 
 cleanup_kubernetes_resources() {
     if [ "$ENVIRONMENT" = "prod" ]; then
@@ -74,6 +203,286 @@ cleanup_terraform() {
     cd ..
 }
 
+cleanup_elasticache_resources() {
+    log "🗄️ Cleaning up ElastiCache resources..."
+    
+    # Clear cache to get fresh data
+    ALL_TAGGED_RESOURCES=""
+    local tagged_resources=$(get_all_tagged_resources)
+    
+    # Delete ElastiCache snapshots first
+    local snapshots=$(extract_resource_ids "elasticache-snapshot" "$tagged_resources")
+    if [ -n "$snapshots" ]; then
+        log "Deleting ElastiCache snapshots: $snapshots"
+        for snapshot in $snapshots; do
+            if [ -n "$snapshot" ]; then
+                # Check if snapshot exists before trying to delete
+                if aws elasticache describe-snapshots --snapshot-name "$snapshot" --region ${AWS_REGION} >/dev/null 2>&1; then
+                    aws elasticache delete-snapshot --snapshot-name "$snapshot" --region ${AWS_REGION} || warn "Failed to delete snapshot $snapshot"
+                else
+                    log "Snapshot $snapshot not found (already deleted)"
+                fi
+            fi
+        done
+    fi
+    
+    # Delete ElastiCache clusters by name pattern
+    local cache_clusters=$(aws elasticache describe-cache-clusters --region ${AWS_REGION} --query 'CacheClusters[?contains(CacheClusterId, `coffeeshop`)].CacheClusterId' --output text)
+    if [ -n "$cache_clusters" ]; then
+        log "Deleting ElastiCache clusters: $cache_clusters"
+        echo "$cache_clusters" | xargs -I {} aws elasticache delete-cache-cluster --region ${AWS_REGION} --cache-cluster-id {} || true
+    fi
+}
+
+cleanup_ec2_instances() {
+    log "🖥️ Cleaning up EC2 instances..."
+    
+    local tagged_resources=$(get_all_tagged_resources)
+    
+    # Get instances by name pattern and by tags
+    local instances_by_name=$(aws ec2 describe-instances --region ${AWS_REGION} --query 'Reservations[*].Instances[?State.Name!=`terminated` && Tags[?Key==`Name` && contains(Value, `coffeeshop`)]].InstanceId' --output text)
+    local instances_by_tag=$(extract_resource_ids "ec2-instance" "$tagged_resources")
+    
+    local all_instances=$(echo "$instances_by_name $instances_by_tag" | tr ' ' '\n' | grep -v '^[[:space:]]*$' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+    
+    if [ -n "$all_instances" ]; then
+        log "Terminating EC2 instances: $all_instances"
+        # Terminate instances one by one to avoid malformed ID issues
+        for instance in $all_instances; do
+            if [ -n "$instance" ]; then
+                aws ec2 terminate-instances --region ${AWS_REGION} --instance-ids "$instance" || warn "Failed to terminate instance $instance"
+            fi
+        done
+        
+        # Wait for instances to terminate
+        log "Waiting for instances to terminate..."
+        for instance in $all_instances; do
+            if [ -n "$instance" ]; then
+                wait_for_resource_deletion "instance" "$instance" &
+            fi
+        done
+        wait
+    else
+        log "No EC2 instances found"
+    fi
+}
+
+cleanup_nat_gateways() {
+    log "🌐 Cleaning up NAT gateways..."
+    
+    local tagged_resources=$(get_all_tagged_resources)
+    local nat_gateways=$(extract_resource_ids "nat-gateway" "$tagged_resources")
+    
+    if [ -n "$nat_gateways" ]; then
+        log "Deleting NAT gateways: $nat_gateways"
+        for nat_gw in $nat_gateways; do
+            if [ -n "$nat_gw" ]; then
+                # Check if NAT gateway exists before trying to delete
+                if aws ec2 describe-nat-gateways --nat-gateway-ids "$nat_gw" --region ${AWS_REGION} >/dev/null 2>&1; then
+                    aws ec2 delete-nat-gateway --nat-gateway-id "$nat_gw" --region ${AWS_REGION} || warn "Failed to delete NAT gateway $nat_gw"
+                else
+                    log "NAT gateway $nat_gw not found (already deleted)"
+                fi
+            fi
+        done
+        
+        # Wait for NAT gateways to be deleted
+        for nat_gw in $nat_gateways; do
+            if [ -n "$nat_gw" ]; then
+                wait_for_resource_deletion "nat-gateway" "$nat_gw" &
+            fi
+        done
+        wait
+    else
+        log "No NAT gateways found"
+    fi
+}
+
+cleanup_rds_resources() {
+    log "🗄️ Cleaning up RDS resources..."
+    
+    local tagged_resources=$(get_all_tagged_resources)
+    
+    # Delete RDS instances by name pattern
+    local rds_instances=$(aws rds describe-db-instances --region ${AWS_REGION} --query 'DBInstances[?contains(DBInstanceIdentifier, `coffeeshop`)].DBInstanceIdentifier' --output text)
+    if [ -n "$rds_instances" ]; then
+        log "Disabling deletion protection for RDS instances: $rds_instances"
+        echo "$rds_instances" | xargs -I {} aws rds modify-db-instance --region ${AWS_REGION} --db-instance-identifier {} --no-deletion-protection --apply-immediately || true
+        
+        sleep 10
+        
+        log "Deleting RDS instances: $rds_instances"
+        echo "$rds_instances" | xargs -I {} aws rds delete-db-instance --region ${AWS_REGION} --db-instance-identifier {} --skip-final-snapshot || true
+    fi
+    
+    # Delete RDS parameter groups
+    local param_groups=$(extract_resource_ids "rds-parameter-group" "$tagged_resources")
+    if [ -n "$param_groups" ]; then
+        log "Deleting RDS parameter groups: $param_groups"
+        echo "$param_groups" | xargs -I {} aws rds delete-db-parameter-group --db-parameter-group-name {} --region ${AWS_REGION} || true
+    fi
+    
+    # Delete RDS subnet groups
+    local subnet_groups=$(extract_resource_ids "rds-subnet-group" "$tagged_resources")
+    if [ -n "$subnet_groups" ]; then
+        log "Deleting RDS subnet groups: $subnet_groups"
+        echo "$subnet_groups" | xargs -I {} aws rds delete-db-subnet-group --db-subnet-group-name {} --region ${AWS_REGION} || true
+    fi
+}
+
+cleanup_load_balancers() {
+    log "⚖️ Cleaning up Load Balancers..."
+    
+    local load_balancers=$(aws elbv2 describe-load-balancers --region ${AWS_REGION} --query 'LoadBalancers[?contains(LoadBalancerName, `coffeeshop`)].LoadBalancerArn' --output text)
+    if [ -n "$load_balancers" ]; then
+        log "Deleting Load Balancers: $load_balancers"
+        echo "$load_balancers" | xargs -I {} aws elbv2 delete-load-balancer --region ${AWS_REGION} --load-balancer-arn {} || true
+    else
+        log "No Load Balancers found"
+    fi
+}
+
+cleanup_security_groups() {
+    log "🔒 Cleaning up Security Groups..."
+    
+    local tagged_resources=$(get_all_tagged_resources)
+    local security_groups=$(extract_resource_ids "security-group" "$tagged_resources")
+    
+    if [ -n "$security_groups" ]; then
+        log "Deleting Security Groups: $security_groups"
+        local max_attempts=5
+        local attempt=0
+        
+        while [ $attempt -lt $max_attempts ] && [ -n "$security_groups" ]; do
+            log "Attempt $((attempt + 1)) to delete security groups..."
+            local failed_sgs=""
+            
+            for sg in $security_groups; do
+                # Skip default security groups
+                local sg_name=$(aws ec2 describe-security-groups --group-ids "$sg" --region ${AWS_REGION} --query 'SecurityGroups[0].GroupName' --output text 2>/dev/null || echo "")
+                if [ "$sg_name" = "default" ]; then
+                    log "Skipping default security group: $sg"
+                    continue
+                fi
+                
+                # Check if security group exists before trying to delete
+                if aws ec2 describe-security-groups --group-ids "$sg" --region ${AWS_REGION} >/dev/null 2>&1; then
+                    if ! aws ec2 delete-security-group --group-id "$sg" --region ${AWS_REGION} 2>/dev/null; then
+                        failed_sgs="$failed_sgs $sg"
+                        warn "Failed to delete security group $sg (will retry)"
+                    else
+                        log "✅ Security group $sg deleted"
+                    fi
+                else
+                    log "Security group $sg not found (already deleted)"
+                fi
+            done
+            
+            security_groups=$(echo "$failed_sgs" | xargs)
+            ((attempt++))
+            
+            if [ -n "$security_groups" ] && [ $attempt -lt $max_attempts ]; then
+                log "Waiting 30 seconds before retrying..."
+                sleep 30
+            fi
+        done
+        
+        if [ -n "$security_groups" ]; then
+            warn "⚠️  Could not delete some security groups: $security_groups"
+        fi
+    else
+        log "No security groups found"
+    fi
+}
+
+cleanup_network_resources() {
+    log "🌐 Cleaning up Network resources..."
+    
+    local tagged_resources=$(get_all_tagged_resources)
+    local vpc_ids=$(extract_resource_ids "vpc" "$tagged_resources")
+    
+    # Clean up Elastic IP addresses first
+    log "Cleaning up Elastic IP addresses..."
+    local elastic_ips=$(aws ec2 describe-addresses --region ${AWS_REGION} --query 'Addresses[?Tags[?Key==`Name` && contains(Value, `coffeeshop`)]].AllocationId' --output text 2>/dev/null || echo "")
+    
+    # Also find untagged EIPs associated with NAT gateways or instances with coffeeshop in the name
+    local nat_eips=$(aws ec2 describe-addresses --region ${AWS_REGION} --query 'Addresses[?AssociationId && contains(InstanceId, `coffeeshop`)].AllocationId' --output text 2>/dev/null || echo "")
+    
+    local all_eips=$(echo "$elastic_ips $nat_eips" | tr ' ' '\n' | grep -v '^[[:space:]]*$' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+    
+    if [ -n "$all_eips" ]; then
+        log "Releasing Elastic IP addresses: $all_eips"
+        for eip in $all_eips; do
+            if [ -n "$eip" ]; then
+                aws ec2 release-address --allocation-id "$eip" --region ${AWS_REGION} || warn "Failed to release EIP $eip"
+            fi
+        done
+    else
+        log "No Elastic IP addresses found"
+    fi
+    
+    if [ -n "$vpc_ids" ]; then
+        # Delete Internet Gateways
+        for vpc in $vpc_ids; do
+            local igws=$(aws ec2 describe-internet-gateways --filters "Name=attachment.vpc-id,Values=$vpc" --region ${AWS_REGION} --query 'InternetGateways[].InternetGatewayId' --output text 2>/dev/null || echo "")
+            if [ -n "$igws" ]; then
+                log "Detaching and deleting Internet Gateways for VPC $vpc: $igws"
+                for igw in $igws; do
+                    aws ec2 detach-internet-gateway --internet-gateway-id "$igw" --vpc-id "$vpc" --region ${AWS_REGION} || true
+                    aws ec2 delete-internet-gateway --internet-gateway-id "$igw" --region ${AWS_REGION} || true
+                done
+            fi
+        done
+        
+        # Delete Route Tables (non-main ones)
+        for vpc in $vpc_ids; do
+            local route_tables=$(aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$vpc" --region ${AWS_REGION} --query 'RouteTables[?!Main].RouteTableId' --output text 2>/dev/null || echo "")
+            if [ -n "$route_tables" ]; then
+                log "Deleting Route Tables for VPC $vpc: $route_tables"
+                echo "$route_tables" | xargs -I {} aws ec2 delete-route-table --route-table-id {} --region ${AWS_REGION} || true
+            fi
+        done
+        
+        # Delete Subnets
+        local subnets=$(extract_resource_ids "subnet" "$tagged_resources")
+        if [ -n "$subnets" ]; then
+            log "Deleting Subnets: $subnets"
+            echo "$subnets" | xargs -I {} aws ec2 delete-subnet --subnet-id {} --region ${AWS_REGION} || true
+        fi
+        
+        # Delete VPCs
+        for vpc in $vpc_ids; do
+            # Skip default VPC
+            local is_default=$(aws ec2 describe-vpcs --vpc-ids "$vpc" --region ${AWS_REGION} --query 'Vpcs[0].IsDefault' --output text 2>/dev/null || echo "false")
+            if [ "$is_default" = "true" ]; then
+                log "Skipping default VPC: $vpc"
+                continue
+            fi
+            
+            log "Deleting VPC: $vpc"
+            aws ec2 delete-vpc --vpc-id "$vpc" --region ${AWS_REGION} || true
+        done
+    else
+        log "No VPCs found"
+    fi
+}
+
+cleanup_kms_keys() {
+    log "🔐 Cleaning up KMS keys..."
+    
+    local tagged_resources=$(get_all_tagged_resources)
+    local kms_keys=$(extract_resource_ids "kms-key" "$tagged_resources")
+    
+    if [ -n "$kms_keys" ]; then
+        log "Scheduling KMS key deletion: $kms_keys"
+        for key in $kms_keys; do
+            aws kms schedule-key-deletion --key-id "$key" --pending-window-in-days 7 --region ${AWS_REGION} || warn "Failed to schedule key deletion $key"
+        done
+    else
+        log "No KMS keys found"
+    fi
+}
+
 cleanup_ecr_repositories() {
     log "🗂️ Cleaning up ECR repositories..."
     
@@ -92,6 +501,75 @@ cleanup_ecr_repositories() {
             log "ECR repository ${repo_name} not found (already deleted)"
         fi
     done
+}
+
+cleanup_route53_resources() {
+    log "🌐 Cleaning up Route53 resources..."
+    
+    # Check if jq is available (needed for Route53 record manipulation)
+    if ! command -v jq &> /dev/null; then
+        warn "jq is not installed. Skipping Route53 cleanup (manual cleanup may be required)"
+        return
+    fi
+    
+    # Find hosted zones with coffeeshop in the name
+    local hosted_zones=$(aws route53 list-hosted-zones --query 'HostedZones[?contains(Name, `coffeeshop`)].Id' --output text 2>/dev/null || echo "")
+    
+    if [ -n "$hosted_zones" ]; then
+        log "Found Route53 hosted zones: $hosted_zones"
+        for zone_id in $hosted_zones; do
+            # Clean up the zone ID (remove /hostedzone/ prefix)
+            zone_id=$(echo "$zone_id" | sed 's|/hostedzone/||')
+            
+            if [ -n "$zone_id" ]; then
+                log "Deleting Route53 hosted zone: $zone_id"
+                
+                # First, delete all records except NS and SOA
+                local records=$(aws route53 list-resource-record-sets --hosted-zone-id "$zone_id" --query 'ResourceRecordSets[?Type != `NS` && Type != `SOA`]' --output json 2>/dev/null || echo "[]")
+                
+                if [ "$records" != "[]" ]; then
+                    log "Deleting Route53 records in hosted zone $zone_id"
+                    # Create a changeset to delete all records
+                    local changeset=$(echo "$records" | jq '{Changes: [.[] | {Action: "DELETE", ResourceRecordSet: .}]}')
+                    aws route53 change-resource-record-sets --hosted-zone-id "$zone_id" --change-batch "$changeset" || warn "Failed to delete records in hosted zone $zone_id"
+                fi
+                
+                # Then delete the hosted zone
+                aws route53 delete-hosted-zone --id "$zone_id" || warn "Failed to delete hosted zone $zone_id"
+            fi
+        done
+    else
+        log "No Route53 hosted zones found"
+    fi
+}
+
+# Unified manual cleanup function that handles all resources in proper order
+comprehensive_cleanup_resources() {
+    log "🛠️ Starting comprehensive cleanup of tagged resources..."
+    
+    # Step 1: Clean up application-level resources first
+    cleanup_elasticache_resources
+    cleanup_ec2_instances
+    cleanup_load_balancers
+    
+    # Step 2: Clean up NAT gateways (they prevent subnet deletion)
+    cleanup_nat_gateways
+    
+    # Step 3: Clean up RDS resources
+    cleanup_rds_resources
+    
+    # Step 4: Wait for previous resources to be deleted
+    log "Waiting 60 seconds for resources to be deleted..."
+    sleep 60
+    
+    # Step 5: Clean up network resources (order is important)
+    cleanup_security_groups
+    cleanup_network_resources
+    
+    # Step 6: Clean up remaining resources
+    cleanup_kms_keys
+    
+    log "✅ Comprehensive cleanup completed"
 }
 
 cleanup_backend_resources() {
@@ -224,54 +702,23 @@ verify_cleanup() {
     else
         log "✅ No ECR repositories found"
     fi
-}
-
-manual_cleanup_resources() {
-    log "🛠️ Manual cleanup of remaining resources..."
     
-    # Terminate EC2 instances
-    local instances=$(aws ec2 describe-instances --region ${AWS_REGION} --query 'Reservations[*].Instances[?State.Name!=`terminated` && Tags[?Key==`Name` && contains(Value, `coffeeshop`)]].InstanceId' --output text)
-    if [ -n "$instances" ]; then
-        log "Terminating EC2 instances: $instances"
-        echo "$instances" | xargs -I {} aws ec2 terminate-instances --region ${AWS_REGION} --instance-ids {}
+    # Check Elastic IP addresses
+    local elastic_ips=$(aws ec2 describe-addresses --region ${AWS_REGION} --query 'Addresses[?Tags[?Key==`Name` && contains(Value, `coffeeshop`)]].PublicIp' --output text 2>/dev/null)
+    if [ -n "$elastic_ips" ]; then
+        warn "⚠️  Elastic IP addresses still exist:"
+        echo "$elastic_ips"
+    else
+        log "✅ No Elastic IP addresses found"
     fi
     
-    # Delete RDS instances
-    local rds_instances=$(aws rds describe-db-instances --region ${AWS_REGION} --query 'DBInstances[?contains(DBInstanceIdentifier, `coffeeshop`)].DBInstanceIdentifier' --output text)
-    if [ -n "$rds_instances" ]; then
-        log "Disabling deletion protection for RDS instances: $rds_instances"
-        echo "$rds_instances" | xargs -I {} aws rds modify-db-instance --region ${AWS_REGION} --db-instance-identifier {} --no-deletion-protection --apply-immediately
-        
-        # Wait a moment for the modification to take effect
-        sleep 10
-        
-        log "Deleting RDS instances: $rds_instances"
-        echo "$rds_instances" | xargs -I {} aws rds delete-db-instance --region ${AWS_REGION} --db-instance-identifier {} --skip-final-snapshot
-    fi
-    
-    # Delete ElastiCache clusters
-    local cache_clusters=$(aws elasticache describe-cache-clusters --region ${AWS_REGION} --query 'CacheClusters[?contains(CacheClusterId, `coffeeshop`)].CacheClusterId' --output text)
-    if [ -n "$cache_clusters" ]; then
-        log "Deleting ElastiCache clusters: $cache_clusters"
-        echo "$cache_clusters" | xargs -I {} aws elasticache delete-cache-cluster --region ${AWS_REGION} --cache-cluster-id {}
-    fi
-    
-    # Delete Load Balancers
-    local load_balancers=$(aws elbv2 describe-load-balancers --region ${AWS_REGION} --query 'LoadBalancers[?contains(LoadBalancerName, `coffeeshop`)].LoadBalancerArn' --output text)
-    if [ -n "$load_balancers" ]; then
-        log "Deleting Load Balancers: $load_balancers"
-        echo "$load_balancers" | xargs -I {} aws elbv2 delete-load-balancer --region ${AWS_REGION} --load-balancer-arn {}
-    fi
-    
-    # Wait a bit for resources to be deleted
-    log "Waiting 30 seconds for resources to be deleted..."
-    sleep 30
-    
-    # Delete NAT Gateways
-    local nat_gateways=$(aws ec2 describe-nat-gateways --region ${AWS_REGION} --query 'NatGateways[?State==`available` && Tags[?Key==`Name` && contains(Value, `coffeeshop`)]].NatGatewayId' --output text)
-    if [ -n "$nat_gateways" ]; then
-        log "Deleting NAT Gateways: $nat_gateways"
-        echo "$nat_gateways" | xargs -I {} aws ec2 delete-nat-gateway --region ${AWS_REGION} --nat-gateway-id {}
+    # Check Route53 hosted zones
+    local hosted_zones=$(aws route53 list-hosted-zones --query 'HostedZones[?contains(Name, `coffeeshop`)].Name' --output text 2>/dev/null)
+    if [ -n "$hosted_zones" ]; then
+        warn "⚠️  Route53 hosted zones still exist:"
+        echo "$hosted_zones"
+    else
+        log "✅ No Route53 hosted zones found"
     fi
 }
 
@@ -287,6 +734,7 @@ usage() {
     echo "  --terraform-only    Only run terraform destroy"
     echo "  --manual-only       Only run manual cleanup (skip terraform)"
     echo "  --verify-only       Only verify what resources exist"
+    echo "  --dry-run           Show what would be deleted without actually deleting"
     echo "  --force             Skip confirmation prompts"
     echo "  -h, --help          Show this help message"
     echo ""
@@ -295,6 +743,7 @@ usage() {
     echo "  $0 prod              # Full cleanup of prod environment (EKS)"
     echo "  $0 --terraform-only prod  # Only terraform destroy for prod"
     echo "  $0 --verify-only     # Check what resources exist"
+    echo "  $0 --dry-run prod    # Show what would be deleted in prod"
     echo ""
 }
 
@@ -302,6 +751,7 @@ main() {
     local terraform_only=false
     local manual_only=false
     local verify_only=false
+    local dry_run=false
     local force=false
     
     # Parse arguments
@@ -317,6 +767,10 @@ main() {
                 ;;
             --verify-only)
                 verify_only=true
+                shift
+                ;;
+            --dry-run)
+                dry_run=true
                 shift
                 ;;
             --force)
@@ -345,7 +799,7 @@ main() {
     log "Cleaning up environment: ${ENVIRONMENT}"
     
     # Check prerequisites
-    if [ "$verify_only" = false ]; then
+    if [ "$verify_only" = false ] && [ "$dry_run" = false ]; then
         if ! command_exists aws; then
             error "AWS CLI is not installed"
         fi
@@ -362,8 +816,29 @@ main() {
     echo -e "${BLUE}🧹 CoffeeShop Infrastructure Cleanup${NC}"
     echo -e "${BLUE}=====================================${NC}"
     
-    if [ "$verify_only" = true ]; then
-        verify_cleanup
+    if [ "$verify_only" = true ] || [ "$dry_run" = true ]; then
+        show_current_resources
+        if [ "$dry_run" = true ]; then
+            echo ""
+            echo -e "${YELLOW}🔍 DRY RUN: The following actions would be performed:${NC}"
+            echo ""
+            echo "1. Kubernetes resources cleanup (if prod environment)"
+            echo "2. Terraform destroy (if not --manual-only)"
+            echo "3. ECR repositories cleanup (if not --terraform-only)"
+            echo "4. Route53 hosted zones cleanup (if not --terraform-only)"
+            echo "5. ElastiCache resources cleanup (if not --terraform-only)"
+            echo "6. EC2 instances termination (if not --terraform-only)"
+            echo "7. Load balancers cleanup (if not --terraform-only)"
+            echo "8. NAT gateways cleanup (if not --terraform-only)"
+            echo "9. RDS resources cleanup (if not --terraform-only)"
+            echo "10. Security groups cleanup (if not --terraform-only)"
+            echo "11. Network resources cleanup (Elastic IPs, VPCs, etc.) (if not --terraform-only)"
+            echo "12. KMS keys scheduling for deletion (if not --terraform-only)"
+            echo "13. Backend resources cleanup (S3, DynamoDB) (if not --terraform-only)"
+            echo "14. IAM resources cleanup (if not --terraform-only)"
+            echo ""
+            echo -e "${GREEN}💡 Use --force to skip confirmation prompts${NC}"
+        fi
         exit 0
     fi
     
@@ -383,32 +858,70 @@ main() {
     export AWS_PROFILE=devops-training
     log "Using AWS profile: $AWS_PROFILE"
     
+    # Setup logging
+    local log_file="cleanup-$(date +%Y%m%d-%H%M%S).log"
+    log "Logging cleanup operations to: $log_file"
+    
+    # Log cleanup start
+    {
+        echo "CoffeeShop Infrastructure Cleanup Log"
+        echo "======================================"
+        echo "Start time: $(date)"
+        echo "Environment: $ENVIRONMENT"
+        echo "Options: terraform_only=$terraform_only, manual_only=$manual_only, force=$force"
+        echo "User: $(whoami)"
+        echo "AWS Profile: $AWS_PROFILE"
+        echo ""
+    } >> "$log_file"
+    
     # Run cleanup steps in the correct order
+    echo -e "${BLUE}🚀 Starting cleanup process...${NC}"
+    echo -e "${BLUE}==============================${NC}"
+    
     # 1. First cleanup Kubernetes resources (before destroying EKS cluster)
     if [ "$terraform_only" = false ]; then
+        echo -e "${BLUE}[1/6] Cleaning up Kubernetes resources...${NC}"
         cleanup_kubernetes_resources
     fi
     
     # 2. Then cleanup Terraform-managed infrastructure
     if [ "$manual_only" = false ]; then
+        echo -e "${BLUE}[2/6] Running Terraform destroy...${NC}"
         cleanup_terraform
     fi
     
     # 3. Finally cleanup any remaining manual resources
     if [ "$terraform_only" = false ]; then
+        echo -e "${BLUE}[3/6] Cleaning up ECR repositories...${NC}"
         cleanup_ecr_repositories
-        manual_cleanup_resources
+        echo -e "${BLUE}[4/6] Cleaning up Route53 resources...${NC}"
+        cleanup_route53_resources
+        echo -e "${BLUE}[5/6] Cleaning up AWS resources...${NC}"
+        comprehensive_cleanup_resources
+        echo -e "${BLUE}[6/6] Cleaning up backend and IAM resources...${NC}"
         cleanup_backend_resources
         cleanup_iam_resources
     fi
     
     # Verify cleanup
+    echo ""
+    echo -e "${BLUE}🔍 Final Verification${NC}"
+    echo -e "${BLUE}===================${NC}"
     verify_cleanup
     
     echo ""
-    echo -e "${GREEN}✅ Cleanup completed!${NC}"
+    echo -e "${GREEN}✅ Cleanup completed successfully!${NC}"
     echo -e "${GREEN}💰 Check your AWS billing dashboard to confirm resources are deleted.${NC}"
+    echo -e "${GREEN}📊 Consider running --verify-only to double-check no resources remain.${NC}"
+    echo -e "${GREEN}📋 Cleanup log saved to: $log_file${NC}"
     echo ""
+    
+    # Log cleanup completion
+    {
+        echo ""
+        echo "End time: $(date)"
+        echo "Cleanup completed successfully"
+    } >> "$log_file"
 }
 
 main "$@"

@@ -79,6 +79,7 @@ deploy_aws_dev() {
     
     info "This will create real AWS infrastructure (~$50/month)"
     info "Includes: EC2, RDS, ElastiCache, Load Balancer, ECR"
+    info "And deploy the application automatically to EC2"
     echo
     
     read -p "Continue? (y/N): " -n 1 -r
@@ -97,11 +98,12 @@ deploy_aws_dev() {
         exit 1
     fi
     
-    # Deploy infrastructure
+    # Deploy infrastructure and application
     ./scripts/deploy-infrastructure.sh dev
     
     log "🎉 AWS development deployment completed successfully!"
     echo
+    info "🌐 Your CoffeeShop application is now running on AWS!"
     info "💰 Cost reminder: This deployment costs ~$50/month"
     info "🧹 Clean up when done: ./deploy.sh cleanup"
 }

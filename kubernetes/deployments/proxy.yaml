@@ -33,16 +33,14 @@ spec:
         - name: GRPC_COUNTER_PORT
           value: "5002"
         livenessProbe:
-          httpGet:
-            path: /health
+          tcpSocket:
             port: 5000
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
         readinessProbe:
-          httpGet:
-            path: /health
+          tcpSocket:
             port: 5000
           initialDelaySeconds: 5
           periodSeconds: 5
